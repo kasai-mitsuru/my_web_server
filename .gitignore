@@ -1,3 +1,4 @@
 .*
 server_recv.txt
 client_recv.txt
+__pycache__
