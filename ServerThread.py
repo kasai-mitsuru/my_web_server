@@ -8,7 +8,7 @@ from WSGIApplication import WSGIApplication
 
 
 class ServerThread(Thread):
-    DOCUMENT_ROOT = "/Users/mitsuru_kasai/Documents/github/my_web_server/docs"
+    DOCUMENT_ROOT = "./resources"
     CONTENT_TYPE_MAP = {
         "html": "text/html",
         "htm": "text/html",
