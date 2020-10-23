@@ -16,7 +16,7 @@ class WSGIApplication:
     DOCUMENT_ROOT = "./resources"
     DOCUMENT_404 = "./resources/404.html"
 
-    def application(self, env: dict, start_response: Callable[[str, List[tuple]], None]):
+    def application(self, env: dict, start_response: Callable[[str, Iterable[tuple]], None]):
         """
         env:
             リクエストヘッダーの情報がdictで渡されてくる
