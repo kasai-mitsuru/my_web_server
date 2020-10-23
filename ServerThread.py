@@ -7,6 +7,15 @@ from typing import List, Iterable, Dict, Tuple
 from WSGIApplication import WSGIApplication
 
 
+class StartResponse:
+    status: str
+    response_headers: Iterable[Tuple[str, str]]
+
+    def __call__(self, status: str, response_headers: Iterable[Tuple[str, str]], exec_info=None):
+        self.status = status
+        self.response_headers = response_headers
+
+
 class ServerThread(Thread):
     CONTENT_TYPE_MAP = {
         "html": "text/html",
@@ -43,16 +52,14 @@ class ServerThread(Thread):
             env = self.build_env(method, path, protocol, request_headers, request_body)
 
             # WSGI Application用のstart_responseを生成
-            def start_response(status, response_headers, exc_info=None):
-                self.response_status = status
-                self.response_headers = response_headers
+            start_response = StartResponse()
 
             # WSGIアプリケーションのapplicationを呼び出す
             body_bytes_list: Iterable[bytes] = WSGIApplication().application(env, start_response)
 
             # 呼び出し結果をもとにレスポンスを生成する
-            output_bytes = self.get_status_line()  # ステータスライン
-            output_bytes += self.get_response_header(path)  # ヘッダー
+            output_bytes = self.get_status_line(start_response.status)  # ステータスライン
+            output_bytes += self.get_response_header(start_response.response_headers, path)  # ヘッダー
             output_bytes += b"\r\n"  # 空行
             output_bytes += self.get_response_body(body_bytes_list)  # ボディ
 
@@ -66,6 +73,10 @@ class ServerThread(Thread):
         finally:
             self.socket.close()
             print("Worker: 通信を終了しました")
+
+    def start_response(self, status, headers):
+        self.response_status = status
+        self.response_headers = headers
 
     def parse_request(self, request: str) -> Tuple[str, str, str, Dict[str, str], str]:
         # request_lineを抽出
@@ -114,16 +125,17 @@ class ServerThread(Thread):
 
         return self.CONTENT_TYPE_MAP.get(ext, "application/octet-stream")
 
-    def get_status_line(self) -> bytes:
+    @staticmethod
+    def get_status_line(status: str) -> bytes:
         # ex) "HTTP/1.1 200 OK"
-        return ("HTTP/1.1 " + self.response_status + "\r\n").encode()
+        return ("HTTP/1.1 " + status + "\r\n").encode()
 
     # noinspection SpellCheckingInspection
-    def get_response_header(self, path: str) -> bytes:
+    def get_response_header(self, response_headers: Iterable[Tuple[str, str]], path: str) -> bytes:
         includes_content_type = False
 
         header = ""
-        for response_header in self.response_headers:
+        for response_header in response_headers:
             if response_header[0] == "Content-Type":
                 includes_content_type = True
             header += ": ".join(response_header) + "\r\n"
