@@ -8,7 +8,6 @@ from WSGIApplication import WSGIApplication
 
 
 class ServerThread(Thread):
-    DOCUMENT_ROOT = "./resources"
     CONTENT_TYPE_MAP = {
         "html": "text/html",
         "htm": "text/html",
@@ -21,8 +20,8 @@ class ServerThread(Thread):
         "gif": "image/gif",
     }
 
-    response_line: str
-    response_headers: List[tuple]
+    response_status: str
+    response_headers: List[Tuple[str, str]]
 
     def __init__(self, client_socket: socket):
         super().__init__()
@@ -44,18 +43,18 @@ class ServerThread(Thread):
             env = self.build_env(method, path, protocol, request_headers, request_body)
 
             # WSGI Application用のstart_responseを生成
-            def start_response(response_line: str, response_headers: List[tuple]):
-                self.response_line = response_line
+            def start_response(status, response_headers, exc_info=None):
+                self.response_status = status
                 self.response_headers = response_headers
 
             # WSGIアプリケーションのapplicationを呼び出す
             body_bytes_list: Iterable[bytes] = WSGIApplication().application(env, start_response)
 
             # 呼び出し結果をもとにレスポンスを生成する
-            output_bytes = b""
-            output_bytes += self.get_response_header()
-            output_bytes += "\r\n".encode()
-            output_bytes += self.get_response_body(body_bytes_list)
+            output_bytes = self.get_status_line()  # ステータスライン
+            output_bytes += self.get_response_header(path)  # ヘッダー
+            output_bytes += b"\r\n"  # 空行
+            output_bytes += self.get_response_body(body_bytes_list)  # ボディ
 
             print(f"######## send message ##########\n{output_bytes.decode()}")
 
@@ -109,28 +108,31 @@ class ServerThread(Thread):
 
         return env
 
-    def get_content_type(self, ext: str):
-        if ext != "" or ext not in self.CONTENT_TYPE_MAP:
-            return "application/octet-stream"
+    def get_content_type(self, path: str):
+        split_path = path.rsplit(".", maxsplit=1)
+        ext = split_path[1] if len(split_path) > 1 else ""
 
-        return self.CONTENT_TYPE_MAP[ext]
+        return self.CONTENT_TYPE_MAP.get(ext, "application/octet-stream")
+
+    def get_status_line(self) -> bytes:
+        # ex) "HTTP/1.1 200 OK"
+        return ("HTTP/1.1 " + self.response_status + "\r\n").encode()
 
     # noinspection SpellCheckingInspection
-    def get_response_header(self) -> bytes:
-        # ex) "HTTP/1.1 200 OK"
-        status_line = "HTTP/1.1 " + self.response_line + "\r\n"
+    def get_response_header(self, path: str) -> bytes:
+        includes_content_type = False
 
-        # ex)
-        # self.response_headers = [("key1", "value1"), ("key2, value2")]
-        # header_text_list = ["key1: value1", "key2: value2"]
-        # header_text = "key1: value1\r\nkey2: value2"
-        header_text_list = (": ".join(response_header) for response_header in self.response_headers)
-        header_text = "\r\n".join(header_text_list) + "\r\n"
+        header = ""
+        for response_header in self.response_headers:
+            if response_header[0] == "Content-Type":
+                includes_content_type = True
+            header += ": ".join(response_header) + "\r\n"
 
-        header = b""
-        header += status_line.encode()
-        header += header_text.encode()
-        return header
+        # WSGIアプリケーションから受け取ったヘッダーにContent-Typeがなければ、補完する
+        if not includes_content_type:
+            header = f"Content-Type: {self.get_content_type(path)}\r\n" + header
+
+        return header.encode()
 
     @staticmethod
     def get_response_body(body_bytes_list: Iterable[bytes]) -> bytes:
