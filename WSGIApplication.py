@@ -46,12 +46,13 @@ class WSGIApplication:
         try:
             path = env["PATH_INFO"]
             try:
+                body = self.get_file_content(path)
                 self.start_ok()
-                return [self.get_file_content(path)]
+                return [body]
 
             except OSError:
-                self.start_not_found()
                 with open(self.DOCUMENT_404, "rb") as f:
+                    self.start_not_found()
                     return [f.read()]
 
         except Exception:
