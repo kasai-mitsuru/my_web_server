@@ -1,5 +1,6 @@
+from datetime import datetime
 from enum import Enum
-from typing import Callable, List, Iterable
+from typing import Callable, List, Iterable, Dict
 
 
 # noinspection PyPep8Naming
@@ -45,6 +46,22 @@ class WSGIApplication:
 
         try:
             path = env["PATH_INFO"]
+
+            if path == '/now':
+                body_str = f"<html><body><h1>now is {datetime.now()}</h1></body></html>"
+
+                self.start_ok(headers={"Content-Type": "text/html"})
+                return [body_str.encode()]
+
+            if path == '/headers':
+                body_str = "<html><body>"
+                for key, value in env.items():
+                    body_str += f"{key}: {value}<br>"
+                body_str += "<body><html>"
+
+                self.start_ok(headers={"Content-Type": "text/html"})
+                return [body_str.encode()]
+
             try:
                 body = self.get_file_content(path)
                 self.start_ok()
@@ -63,9 +80,12 @@ class WSGIApplication:
         with open(self.DOCUMENT_ROOT + path, "rb") as f:
             return f.read()
 
-    def start_ok(self) -> None:
+    def start_ok(self, headers: Dict[str, str] = None) -> None:
+        if headers is None:
+            headers = {}
+
         status = HTTP_STATUS.OK
-        self.start_response(str(status), [])
+        self.start_response(str(status), [(key, value) for key, value in headers.items()])
 
     def start_not_found(self) -> None:
         status = HTTP_STATUS.NOT_FOUND
