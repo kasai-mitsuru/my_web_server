@@ -3,7 +3,7 @@ from typing import Callable, List, Iterable
 
 
 # noinspection PyPep8Naming
-class HTTP_STATUS_CODE(Enum):
+class HTTP_STATUS(Enum):
     OK = "200 OK"
     NOT_FOUND = "404 Not Found."
     SERVER_ERROR = "500 Internal Server Error"
@@ -46,33 +46,30 @@ class WSGIApplication:
         try:
             path = env["PATH_INFO"]
             try:
-                return self.start_ok([self.get_file_content(path)])
+                self.start_ok()
+                return [self.get_file_content(path)]
 
             except OSError:
-                return self.start_not_found()
+                self.start_not_found()
+                with open(self.DOCUMENT_404, "rb") as f:
+                    return [f.read()]
 
         except Exception:
-            return self.start_server_error()
+            self.start_server_error()
+            return [b"<html><body><h1>500 Internal Server Error</h1></body></html>"]
 
     def get_file_content(self, path: str) -> bytes:
         with open(self.DOCUMENT_ROOT + path, "rb") as f:
             return f.read()
 
-    def start_ok(self, body: Iterable[bytes]) -> Iterable[bytes]:
-        status = HTTP_STATUS_CODE.OK
+    def start_ok(self) -> None:
+        status = HTTP_STATUS.OK
         self.start_response(str(status), [])
 
-        return body
-
-    def start_not_found(self) -> Iterable[bytes]:
-        status = HTTP_STATUS_CODE.NOT_FOUND
+    def start_not_found(self) -> None:
+        status = HTTP_STATUS.NOT_FOUND
         self.start_response(str(status), [("Content-Type", "text/html")])
 
-        with open(self.DOCUMENT_404, "rb") as f:
-            return [f.read()]
-
-    def start_server_error(self) -> Iterable[bytes]:
-        status = HTTP_STATUS_CODE.SERVER_ERROR
+    def start_server_error(self) -> None:
+        status = HTTP_STATUS.SERVER_ERROR
         self.start_response(str(status), [("Content-Type", "text/html")])
-
-        return [b"<html><body><h1>500 Internal Server Error</h1></body></html>"]
