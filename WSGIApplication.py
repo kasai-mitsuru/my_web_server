@@ -1,3 +1,4 @@
+import traceback
 from datetime import datetime
 from enum import Enum
 from typing import Callable, List, Iterable, Dict
@@ -47,6 +48,11 @@ class WSGIApplication:
         try:
             path = env["PATH_INFO"]
 
+            if env["REQUEST_METHOD"] == "GET":
+                queries = self.parse_parameters(env["QUERY_STRING"])
+            if env["REQUEST_METHOD"] == "POST":
+                post_params = self.parse_parameters(env["wsgi.input"].read().decode())
+
             if path == '/now':
                 body_str = f"<html><body><h1>now is {datetime.now()}</h1></body></html>"
 
@@ -54,10 +60,20 @@ class WSGIApplication:
                 return [body_str.encode()]
 
             if path == '/headers':
-                body_str = "<html><body>"
+                body_str = ""
                 for key, value in env.items():
                     body_str += f"{key}: {value}<br>"
-                body_str += "<body><html>"
+
+                self.start_ok(headers={"Content-Type": "text/html"})
+                return [body_str.encode()]
+
+            if path == '/parameters':
+                if env["REQUEST_METHOD"] == "GET":
+                    body_str = str(queries)
+                elif env["REQUEST_METHOD"] == "POST":
+                    body_str = str(post_params)
+                else:
+                    raise NotImplementedError
 
                 self.start_ok(headers={"Content-Type": "text/html"})
                 return [body_str.encode()]
@@ -73,6 +89,8 @@ class WSGIApplication:
                     return [f.read()]
 
         except Exception:
+            stream = env["wsgi.errors"]
+            stream.write(traceback.format_exc())
             self.start_server_error()
             return [b"<html><body><h1>500 Internal Server Error</h1></body></html>"]
 
@@ -94,3 +112,16 @@ class WSGIApplication:
     def start_server_error(self) -> None:
         status = HTTP_STATUS.SERVER_ERROR
         self.start_response(str(status), [("Content-Type", "text/html")])
+
+    @staticmethod
+    def parse_parameters(params_string: str) -> Dict[str, str]:
+        params = {}
+        if params_string == "":
+            return params
+
+        for q in params_string.split("&"):
+            sq = q.split("=", maxsplit=1)
+
+            params[sq[0]] = sq[1] if len(sq) == 2 else True
+
+        return params

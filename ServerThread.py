@@ -1,6 +1,8 @@
 import re
 import socket
 import traceback
+from io import BytesIO
+from sys import stdout
 from threading import Thread
 from typing import List, Iterable, Dict, Tuple
 
@@ -40,13 +42,10 @@ class ServerThread(Thread):
         print("Worker: 処理開始")
         try:
             # クライアントから受け取ったメッセージを代入
-            request = self.socket.recv(4096)
-            request_decoded: str = request.decode()
-
-            print(f"######## received message ##########\n{request_decoded}")
+            request: bytes = self.socket.recv(4096)
 
             # requestをパースする
-            method, path, protocol, request_headers, request_body = self.parse_request(request_decoded)
+            method, path, protocol, request_headers, request_body = self.parse_request(request)
 
             # WSGI Application用のenvを生成
             env = self.build_env(method, path, protocol, request_headers, request_body)
@@ -78,13 +77,16 @@ class ServerThread(Thread):
         self.response_status = status
         self.response_headers = headers
 
-    def parse_request(self, request: str) -> Tuple[str, str, str, Dict[str, str], str]:
+    def parse_request(self, request: bytes) -> Tuple[str, str, str, Dict[str, str], bytes]:
         # request_lineを抽出
-        request_line, remain = request.split("\r\n", maxsplit=1)
+        request_line_raw, remain = request.split(b"\r\n", maxsplit=1)
+        request_line = request_line_raw.decode()
         # メソッド、パス、プロトコルを取得
         method, path, protocol = request_line.split(" ", maxsplit=2)
+
         # request headerを抽出、パース
-        header_str, body = remain.split("\r\n\r\n", maxsplit=1)
+        header_raw, body = remain.split(b"\r\n\r\n", maxsplit=1)
+        header_str = header_raw.decode()
         headers = self.parse_headers(header_str)
 
         return method, path, protocol, headers, body
@@ -100,14 +102,21 @@ class ServerThread(Thread):
         }
 
     @staticmethod
-    def build_env(method: str, path: str, protocol: str, headers: Dict[str, str], body: str) -> dict:
+    def build_env(method: str, path: str, protocol: str, headers: Dict[str, str], body: bytes) -> dict:
         split_path = path.split("?", maxsplit=1)
         env = {
             "REQUEST_METHOD": method.upper(),
             "PATH_INFO": split_path[0],
             "QUERY_STRING": split_path[1] if len(split_path) > 1 else "",
             "SERVER_PROTOCOL": protocol,
-            "CONTENT_TYPE": headers.get("Content-Type", "")
+            "CONTENT_TYPE": headers.get("Content-Type", ""),
+            "wsgi.version": (1, 0, 1),
+            "wsgi.url_scheme": protocol,
+            "wsgi.input": BytesIO(body),
+            "wsgi.errors": stdout,
+            "wsgi.multithread": False,
+            "wsgi.multiprocess": False,
+            "wsgi.run_once": False,
         }
 
         # HTTP_Variables
@@ -115,7 +124,7 @@ class ServerThread(Thread):
             key = "HTTP_" + header_key.upper().replace("-", "_")
             env[key] = header_value
 
-        print(f"env: {env}")
+        print(f"#########3 env:\n{env}")
 
         return env
 
