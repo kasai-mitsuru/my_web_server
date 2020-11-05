@@ -46,11 +46,6 @@ class WSGIApplication:
         try:
             path = env["PATH_INFO"]
 
-            if env["REQUEST_METHOD"] == "GET":
-                queries = self.parse_parameters(env["QUERY_STRING"])
-            if env["REQUEST_METHOD"] == "POST":
-                post_params = self.parse_parameters(env["wsgi.input"].read().decode())
-
             if path == '/now':
                 body_str = f"<html><body><h1>now is {datetime.now()}</h1></body></html>"
 
@@ -106,21 +101,10 @@ class WSGIApplication:
         status = HTTP_STATUS.SERVER_ERROR
         self.start_response(str(status), [("Content-Type", "text/html")])
 
-    @staticmethod
-    def parse_parameters(params_string: str) -> Dict[str, str]:
-        params = {}
-        if params_string == "":
-            return params
-
-        for q in params_string.split("&"):
-            sq = q.split("=", maxsplit=1)
-
-            params[sq[0]] = sq[1] if len(sq) == 2 else True
-
-        return params
-
     def start_response_by_response(self, response: Response) -> None:
         status = str(response.status)
+
+        response.headers["Content-Type"] = response.content_type
         headers = [(key, value) for key, value in response.headers.items()]
 
         self.start_response(status, headers)
