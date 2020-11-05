@@ -10,6 +10,6 @@ class Request:
     @staticmethod
     def from_env(env: dict) -> "Request":
         """
-        WSGIインターフェースのenvからリクエストクラスを生成するファクトリーメソッド
+        WSGIインターフェースのenvからリクエストオブジェクトを生成するファクトリーメソッド
         """
         raise NotImplementedError
