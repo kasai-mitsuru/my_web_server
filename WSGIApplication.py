@@ -1,5 +1,4 @@
 import traceback
-from datetime import datetime
 from typing import Callable, List, Iterable, Dict
 
 from my_http.Request import Request
@@ -15,6 +14,12 @@ class WSGIApplication:
 
     DOCUMENT_ROOT = "./resources"
     DOCUMENT_404 = "./resources/404.html"
+
+    URL_VIEWS = {
+        "/now": NowView(),
+        "/headers": HeadersView(),
+        "/parameters": ParametersView(),
+    }
 
     def application(
         self, env: dict, start_response: Callable[[str, Iterable[tuple]], None]
@@ -46,24 +51,12 @@ class WSGIApplication:
         self.start_response = start_response
 
         request = Request.from_env(env)
+        path = request.path
 
         try:
-            path = env["PATH_INFO"]
-
-            if path == "/now":
-                response: Response = NowView().get_response(request)
-
-                self.start_response_by_response(response)
-                return [response.body]
-
-            if path == "/headers":
-                response: Response = HeadersView().get_response(request)
-
-                self.start_response_by_response(response)
-                return [response.body]
-
-            if path == "/parameters":
-                response: Response = ParametersView().get_response(request)
+            if path in self.URL_VIEWS:
+                view = self.URL_VIEWS[path]
+                response = view.get_response(request)
 
                 self.start_response_by_response(response)
                 return [response.body]
