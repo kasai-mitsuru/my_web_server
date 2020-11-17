@@ -4,6 +4,8 @@ from typing import Callable, List, Iterable, Dict
 
 from my_http.Request import Request
 from my_http.Response import Response, HTTP_STATUS
+from views.HeadersView import HeadersView
+from views.NowView import NowView
 from views.ParametersView import ParametersView
 
 
@@ -14,7 +16,9 @@ class WSGIApplication:
     DOCUMENT_ROOT = "./resources"
     DOCUMENT_404 = "./resources/404.html"
 
-    def application(self, env: dict, start_response: Callable[[str, Iterable[tuple]], None]):
+    def application(
+        self, env: dict, start_response: Callable[[str, Iterable[tuple]], None]
+    ):
         """
         env:
             リクエストヘッダーの情報がdictで渡されてくる
@@ -46,21 +50,19 @@ class WSGIApplication:
         try:
             path = env["PATH_INFO"]
 
-            if path == '/now':
-                body_str = f"<html><body><h1>now is {datetime.now()}</h1></body></html>"
+            if path == "/now":
+                response: Response = NowView().get_response(request)
 
-                self.start_ok(headers={"Content-Type": "text/html"})
-                return [body_str.encode()]
+                self.start_response_by_response(response)
+                return [response.body]
 
-            if path == '/headers':
-                body_str = ""
-                for key, value in env.items():
-                    body_str += f"{key}: {value}<br>"
+            if path == "/headers":
+                response: Response = HeadersView().get_response(request)
 
-                self.start_ok(headers={"Content-Type": "text/html"})
-                return [body_str.encode()]
+                self.start_response_by_response(response)
+                return [response.body]
 
-            if path == '/parameters':
+            if path == "/parameters":
                 response: Response = ParametersView().get_response(request)
 
                 self.start_response_by_response(response)
@@ -91,7 +93,9 @@ class WSGIApplication:
             headers = {}
 
         status = HTTP_STATUS.OK
-        self.start_response(str(status), [(key, value) for key, value in headers.items()])
+        self.start_response(
+            str(status), [(key, value) for key, value in headers.items()]
+        )
 
     def start_not_found(self) -> None:
         status = HTTP_STATUS.NOT_FOUND
