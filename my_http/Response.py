@@ -17,8 +17,11 @@ class Response:
     status: HTTP_STATUS
     content_type: str = "text/html"
     headers: dict = None
+    cookies: dict = None
     body: bytes = b""
 
     def __post_init__(self):
         if self.headers is None:
             self.headers = {}
+        if self.cookies is None:
+            self.cookies = {}

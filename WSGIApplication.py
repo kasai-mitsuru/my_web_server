@@ -6,6 +6,7 @@ from my_http.Response import Response, HTTP_STATUS
 from views.HeadersView import HeadersView
 from views.NowView import NowView
 from views.ParametersView import ParametersView
+from views.SetCookieView import SetCookieView
 
 
 class WSGIApplication:
@@ -19,6 +20,7 @@ class WSGIApplication:
         "/now": NowView(),
         "/headers": HeadersView(),
         "/parameters": ParametersView(),
+        "/set_cookie": SetCookieView(),
     }
 
     def application(
@@ -102,6 +104,10 @@ class WSGIApplication:
         status = str(response.status)
 
         response.headers["Content-Type"] = response.content_type
+
         headers = [(key, value) for key, value in response.headers.items()]
+
+        for key, value in response.cookies.items():
+            headers.append(("Set-Cookie", f"{key}={value}"))
 
         self.start_response(status, headers)

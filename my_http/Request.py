@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import parse_qs
@@ -7,6 +8,7 @@ from urllib.parse import parse_qs
 class Request:
     path: str
     method: str
+    cookies: dict = None
     headers: dict = None
     GET: Optional[dict] = None
     POST: Optional[dict] = None
@@ -14,6 +16,8 @@ class Request:
     def __post_init__(self):
         if self.headers is None:
             self.headers = {}
+        if self.cookies is None:
+            self.cookies = {}
         if self.GET is None:
             self.GET = {}
         if self.POST is None:
@@ -29,6 +33,11 @@ class Request:
         for key, value in env.items():
             if key.startswith("HTTP_"):
                 request.headers[key.replace("HTTP_", "")] = value
+
+        if "COOKIE" in request.headers:
+            for cookie in re.split(r"; *", request.headers["COOKIE"]):
+                key, value = cookie.split(r"=")
+                request.cookies[key] = value
 
         if request.method == "GET":
             request.GET = parse_qs(env["QUERY_STRING"])
