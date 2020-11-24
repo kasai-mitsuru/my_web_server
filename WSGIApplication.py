@@ -7,6 +7,7 @@ from views.HeadersView import HeadersView
 from views.NowView import NowView
 from views.ParametersView import ParametersView
 from views.SetCookieView import SetCookieView
+from views.UserView import UserView
 
 
 class WSGIApplication:
@@ -21,6 +22,7 @@ class WSGIApplication:
         "/headers": HeadersView(),
         "/parameters": ParametersView(),
         "/set_cookie": SetCookieView(),
+        "/user": UserView(),
     }
 
     def application(
@@ -101,7 +103,7 @@ class WSGIApplication:
         self.start_response(str(status), [("Content-Type", "text/html")])
 
     def start_response_by_response(self, response: Response) -> None:
-        status = str(response.status)
+        status = response.status.value
 
         response.headers["Content-Type"] = response.content_type
 
