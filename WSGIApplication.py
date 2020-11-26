@@ -1,6 +1,7 @@
 import traceback
 from typing import Callable, List, Iterable, Dict
 
+from middleware import SessionMiddleware
 from my_http.Request import Request
 from my_http.Response import Response, HTTP_STATUS
 from views.HeadersView import HeadersView
@@ -24,6 +25,8 @@ class WSGIApplication:
         "/set_cookie": SetCookieView(),
         "/user": UserView(),
     }
+
+    MIDDLEWARES = [SessionMiddleware]
 
     def application(
         self, env: dict, start_response: Callable[[str, Iterable[tuple]], None]
@@ -59,7 +62,13 @@ class WSGIApplication:
 
         try:
             if path in self.URL_VIEWS:
+                # viewを取得
                 view = self.URL_VIEWS[path]
+
+                # ミドルウェアを適用
+                for middleware in self.MIDDLEWARES:
+                    view = middleware(view)
+
                 response = view.get_response(request)
 
                 self.start_response_by_response(response)
